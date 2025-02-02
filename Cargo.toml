@@ -1,7 +1,7 @@
 [package]
 name = "simple-sip-rs"
 description = "A Tiny, Easy To Use, Experimental SIP Library for Rust"
-license = "AGPL-3"
+license = "AGPL-3.0"
 authors = ["Seifane Idouchach"]
 version = "0.0.1"
 edition = "2021"
