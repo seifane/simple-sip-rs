@@ -1,5 +1,8 @@
 # simple-sip-rs: A Tiny, Easy To Use, Experimental SIP Library for Rust
 
+[![crates.io version](https://img.shields.io/crates/v/simple-sip-rs.svg)](https://crates.io/crates/simple-sip-rs)
+[![docs.rs documentation](https://img.shields.io/docsrs/simple-sip-rs)](https://docs.rs/simple-sip-rs)
+
 ## Disclaimer
 simple-sip-rs is currently in its early stages of development and is not suitable for production use. It is designed for small, experimental projects and may have limitations or bugs.
 
