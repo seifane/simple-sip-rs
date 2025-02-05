@@ -1,9 +1,10 @@
 [package]
 name = "simple-sip-rs"
 description = "A Tiny, Easy To Use, Experimental SIP Library for Rust"
+repository = "https://github.com/seifane/simple-sip-rs"
 license = "AGPL-3.0"
 authors = ["Seifane Idouchach"]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 
 [dependencies]
@@ -12,8 +13,8 @@ tokio = { version = "1.43.0", features = ["full"] }
 log = "0.4.25"
 anyhow = "1.0.95"
 md-5 = "0.10.6"
-uuid = { version = "1.12.1", features = ["v4"] }
-bytes = "1.9.0"
+uuid = { version = "1.13.1", features = ["v4"] }
+bytes = "1.10.0"
 rand = "0.9.0"
 
 rsip = "0.4.0"
@@ -24,11 +25,12 @@ rtp = "0.12.0"
 opus = "0.3.0"
 fon = "0.6.0"
 futures-util = "0.3.31"
+tokio-util = { version = "0.7.13", features = ["codec"] }
 
 [dev-dependencies]
 simplelog = "0.12.2"
 
-clap = { version = "4.5.27", features = ["derive"] }
+clap = { version = "4.5.28", features = ["derive"] }
 cpal = { version = "0.15.3", features = ["jack"] }
 
 [[example]]

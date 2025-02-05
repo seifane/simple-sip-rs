@@ -8,7 +8,8 @@ use webrtc_sdp::{parse_sdp, SdpSession};
 
 use crate::config::Config;
 use crate::context::SipContext;
-use crate::generators::sdp::generate_sdp_new;
+use crate::sip_proto::get_allow_header;
+use crate::sip_proto::sdp::generate_sdp_new;
 
 #[derive(Clone)]
 pub struct LocalSessionParameters {
@@ -143,6 +144,7 @@ impl SessionParameters {
         params.push(rsip::Param::Tag(Tag::new(&self.remote.tag)));
 
         let headers: Vec<Header> = vec![
+            get_allow_header().into(),
             MaxForwards::default().into(),
             request.via_header().unwrap().clone().into(),
             rsip::headers::CallId::from(self.call_id.clone()).into(),

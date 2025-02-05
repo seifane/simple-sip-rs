@@ -4,22 +4,23 @@ use anyhow::Result;
 use clap::Parser;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{BufferSize, SampleRate, Stream, StreamConfig};
+use futures_util::future::Either;
 use log::LevelFilter;
-use simplelog::Config as SimpleLogConfig;
-use simplelog::{ColorChoice, CombinedLogger, TermLogger, TerminalMode};
+use simple_sip_rs::call::outgoing_call::OutgoingCallResponse;
 use simple_sip_rs::call::{Call, CallControl, Media};
 use simple_sip_rs::config::Config;
 use simple_sip_rs::manager::SipManager;
-use simple_sip_rs::call::outgoing_call::OutgoingCallResponse;
+use simplelog::Config as SimpleLogConfig;
+use simplelog::{ColorChoice, CombinedLogger, TermLogger, TerminalMode};
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use futures_util::future::Either;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::Mutex;
 use tokio::time::interval;
+use simple_sip_rs::call::incoming_call::IncomingCallResult;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -35,7 +36,6 @@ struct Args {
 }
 
 fn build_output_stream(buffer: Arc<Mutex<VecDeque<f32>>>) -> Stream {
-    println!("{:?}", cpal::available_hosts());
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -141,8 +141,15 @@ async fn handle_command_input(line: String, sip_manager: &mut SipManager, curren
     match command[0] {
         "accept" => {
             if let Ok(Some(c)) = sip_manager.recv_incoming_call().await {
-                println!("Picked up call from {:?}", c.get_remote_uri());
-                *current_call = Some(c.accept().await?);
+                println!("Incoming call from {:?}", c.get_remote_uri());
+                match c.accept().await? {
+                    IncomingCallResult::Ok(call) => {
+                        *current_call = Some(call);
+                    }
+                    IncomingCallResult::Cancelled => {
+                        println!("Call was dropped before accept")
+                    }
+                }
             } else {
                 println!("No pending calls");
             }
@@ -165,22 +172,31 @@ async fn handle_command_input(line: String, sip_manager: &mut SipManager, curren
         }
         "call" => {
             if command.len() == 2 {
-                let outgoing_call = sip_manager.call(command[1].to_string()).await?;
+                let mut outgoing_call = sip_manager.call(command[1].to_string()).await?;
                 println!("Calling {}", command[1]);
-                match outgoing_call.wait_for_answer().await {
+                // Hang up after 20 seconds
+                match tokio::time::timeout(Duration::from_secs(20), outgoing_call.peek_call_response()).await {
                     Ok(response) => {
                         match response {
-                            OutgoingCallResponse::Accepted(call) => {
-                                println!("Call has been accepted");
-                                *current_call = Some(call);
-                            },
-                            OutgoingCallResponse::Rejected(status_code) => {
-                                println!("Call has been rejected with status {}", status_code);
+                            Ok(_) => {
+                                match outgoing_call.into_call_response().await? {
+                                    OutgoingCallResponse::Accepted(call) => {
+                                        println!("Call has been accepted");
+                                        *current_call = Some(call);
+                                    }
+                                    OutgoingCallResponse::Rejected(status_code) => {
+                                        println!("Call has been rejected with status {}", status_code);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                println!("Error while calling {}, {:?}", command[1], e)
                             }
                         }
                     },
                     Err(e) => {
-                        println!("Error while calling {}, {:?}", command[1], e);
+                        println!("Outgoing call has timed out: {}", e);
+                        outgoing_call.cancel().await?;
                     }
                 }
             } else {
@@ -197,7 +213,7 @@ async fn handle_command_input(line: String, sip_manager: &mut SipManager, curren
 #[tokio::main]
 async fn main() {
     CombinedLogger::init(vec![TermLogger::new(
-        LevelFilter::Debug,
+        LevelFilter::Info,
         SimpleLogConfig::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,

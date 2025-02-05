@@ -8,7 +8,7 @@
 //!
 //! Only audio calls are supported with either Opus or PCMU codec without encryption.
 //!
-//! To get started look at the manager module or example.
+//! To get started look at the [manager](manager::SipManager) module or example.
 
 pub mod call;
 pub mod config;
@@ -16,6 +16,6 @@ pub mod manager;
 
 mod connection;
 mod context;
-mod generators;
+mod sip_proto;
 mod utils;
 mod media;

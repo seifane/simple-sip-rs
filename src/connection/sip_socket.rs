@@ -1,75 +1,29 @@
 use crate::call::incoming_call::IncomingCall;
 use crate::connection::call_connection::CallConnection;
 use crate::context::SipContext;
-use crate::generators::options::generate_options_response;
-use crate::generators::register::{add_auth_header, generate_register_request, ConfigAuth};
+use crate::sip_proto::options::generate_options_response;
+use crate::sip_proto::register::{add_auth_header, generate_register_request, ConfigAuth};
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use log::{error, info, warn};
 use rsip::headers::ToTypedHeader;
-use rsip::prelude::{HasHeaders, HeadersExt, UntypedHeader};
-use rsip::Header::ContentLength;
+use rsip::prelude::{HeadersExt, UntypedHeader};
 use rsip::{Method, Request, SipMessage, StatusCode};
 use std::ops::DerefMut;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use futures_util::StreamExt;
+use tokio::io::{AsyncWriteExt};
 use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::Mutex;
+use tokio_util::codec::FramedRead;
 use crate::connection::socket_data::SocketData;
-
-fn get_next_packet_split(buffer: &Vec<u8>) -> Option<usize> {
-    buffer
-        .windows(4)
-        .enumerate()
-        .find(|&(_, w)| matches!(w, b"\r\n\r\n"))
-        .map(|(ix, _)| ix + 4)
-}
-
-fn try_parse_sip_header_from_buffer(buffer: &mut Vec<u8>) -> Result<Option<SipMessage>> {
-    let index = get_next_packet_split(&buffer);
-    if let Some(index) = index {
-        let packet = buffer.drain(..index).collect::<Vec<_>>();
-        if packet.len() == 4 {
-            // TODO: check content as well
-            debug!("Received keep alive");
-            return Ok(None);
-        }
-
-        return Ok(Some(SipMessage::try_from(packet.as_slice())?));
-    }
-    Ok(None)
-}
-
-fn get_message_content_length(sip_message: &SipMessage) -> usize {
-    sip_message
-        .headers()
-        .iter()
-        .find_map(|header| {
-            if let ContentLength(header) = header {
-                Some(header.length().unwrap_or(0))
-            } else {
-                None
-            }
-        })
-        .unwrap_or(0) as usize
-}
-
-fn try_parse_body(sip_message: &mut SipMessage, buffer: &mut Vec<u8>) -> Result<()> {
-    let content_length = get_message_content_length(sip_message);
-    if content_length > 0 {
-        if buffer.len() < content_length as usize {
-            return Err(anyhow!("Buffer not filled enough"));
-        }
-        let mut body = buffer.drain(..content_length as usize).collect();
-        sip_message.body_mut().append(&mut body);
-    }
-    Ok(())
-}
+use crate::sip_proto::sip_message_decoder::SipMessageDecoder;
 
 pub struct SipSocket {
-    buffer: Vec<u8>,
+    sip_message_reader: FramedRead<OwnedReadHalf, SipMessageDecoder>,
+    stream_write: OwnedWriteHalf,
 
-    stream: TcpStream,
     message_receiver: Receiver<SipMessage>,
     message_sender: Sender<SipMessage>,
     incoming_call_sender: Sender<IncomingCall>,
@@ -85,12 +39,13 @@ impl SipSocket {
         incoming_call_sender: Sender<IncomingCall>,
     ) -> Result<Self> {
         let stream = TcpStream::connect(addr).await?;
+        let (stream_read, stream_write) = stream.into_split();
         let (sender, receiver) = channel(64);
 
         let mut instance = Self {
-            buffer: Vec::new(),
+            sip_message_reader: FramedRead::new(stream_read, SipMessageDecoder::new()),
 
-            stream,
+            stream_write,
             message_sender: sender,
             message_receiver: receiver,
             incoming_call_sender,
@@ -104,19 +59,21 @@ impl SipSocket {
     }
 
     pub async fn run(&mut self) -> Result<()> {
-        let mut read_buffer = [0; 4096];
-
         loop {
             tokio::select! {
-                read = self.stream.read(&mut read_buffer) => {
-                    let read = read?;
-                    self.buffer.extend_from_slice(&read_buffer[..read]);
-                    let message = self.get_next_message().await?;
-                    if let Some(message) = message {
-                        if self.handle_call_message(&message).await {
-                            continue;
+                read = self.sip_message_reader.next() => {
+                    if let Some(message) = read {
+                        match message {
+                            Ok(message) => {
+                                if self.handle_call_message(&message).await {
+                                    continue;
+                                }
+                                self.handle_message(message).await?;
+                            }
+                            Err(e) => {
+                                error!("SIP message read error: {:?}", e);
+                            }
                         }
-                        self.handle_message(message).await?;
                     }
                 }
                 message = self.message_receiver.recv() => {
@@ -198,7 +155,7 @@ impl SipSocket {
     }
 
     async fn send_message(&mut self, message: SipMessage) -> Result<()> {
-        self.stream
+        self.stream_write
             .write_all(message.to_string().as_bytes())
             .await?;
         Ok(())
@@ -206,37 +163,10 @@ impl SipSocket {
 
     async fn read_next_message(&mut self) -> Result<SipMessage> {
         loop {
-            let mut read_buffer = [0; 4096];
-            let read = self.stream.read(&mut read_buffer).await?;
-            self.buffer.extend_from_slice(&read_buffer[..read]);
-
-            let message = self.get_next_message().await?;
-            if let Some(message) = message {
-                return Ok(message);
+            if let Some(message) = self.sip_message_reader.next().await {
+                return Ok(message?)
             }
         }
-    }
-
-    async fn get_next_message(&mut self) -> Result<Option<SipMessage>> {
-        let message = try_parse_sip_header_from_buffer(&mut self.buffer)?;
-        if let Some(mut message) = message {
-            let content_length = get_message_content_length(&message);
-            if content_length > 0 && content_length < self.buffer.len() {
-                self.ensure_buffer_full(content_length).await?;
-            }
-            try_parse_body(&mut message, &mut self.buffer)?;
-            return Ok(Some(message));
-        }
-        Ok(None)
-    }
-
-    async fn ensure_buffer_full(&mut self, len: usize) -> Result<()> {
-        if self.buffer.len() < len {
-            let mut l_buffer = vec![0; len - self.buffer.len()];
-            let n = self.stream.read_exact(&mut l_buffer).await?;
-            self.buffer.extend_from_slice(&l_buffer[..n]);
-        }
-        Ok(())
     }
 
     async fn handle_message(&mut self, message: SipMessage) -> Result<()> {

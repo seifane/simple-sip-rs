@@ -1,17 +1,17 @@
 use anyhow::Result;
 
+use crate::config::Config;
+use crate::sip_proto::get_allow_header;
 use md5::{Digest, Md5};
-use rsip::{HostWithPort, Method, Scheme, SipMessage};
 use rsip::headers::auth;
 use rsip::headers::auth::Algorithm;
-use rsip::Method::{Ack, Bye, Cancel, Invite};
 use rsip::param::OtherParam;
-use rsip::Param::Transport;
 use rsip::prelude::*;
+use rsip::typed::CSeq;
+use rsip::Param::Transport;
 use rsip::Transport::Tcp;
-use rsip::typed::{Allow, CSeq};
+use rsip::{HostWithPort, Method, Scheme, SipMessage};
 use uuid::Uuid;
-use crate::config::Config;
 
 pub struct ConfigAuth<'a> {
     pub config: &'a Config,
@@ -114,7 +114,7 @@ pub fn generate_register_request(config: &Config) -> SipMessage {
         }.into(),
     );
 
-    headers.push(Allow::from(vec![Invite, Ack, Bye, Cancel]).into());
+    headers.push(get_allow_header().into());
     headers.push(rsip::headers::UserAgent::new("rust-sip").into());
     headers.push(rsip::headers::ContentLength::default().into());
 

@@ -54,7 +54,7 @@ impl IncomingCallReceiver {
 ///
 ///  async fn start_sip() {
 ///     let config = Config {
-///         server_addr: SocketAddr::from_str("192.168.1.100").unwrap(),
+///         server_addr: SocketAddr::from_str("192.168.1.100:5060").unwrap(),
 ///         own_addr: SocketAddr::from_str("192.168.1.2").unwrap(),
 ///         username: "username".to_string(),
 ///         password: "password".to_string(),

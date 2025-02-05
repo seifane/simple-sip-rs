@@ -1,9 +1,9 @@
-use rsip::{HostWithPort, Request, Scheme, SipMessage, StatusCode};
-use rsip::headers::AcceptLanguage;
-use rsip::Method::{Ack, Bye, Cancel, Invite};
-use rsip::prelude::*;
-use rsip::typed::{Accept, Allow, MediaType};
 use crate::config::Config;
+use crate::sip_proto::get_allow_header;
+use rsip::headers::AcceptLanguage;
+use rsip::prelude::*;
+use rsip::typed::{Accept, MediaType};
+use rsip::{HostWithPort, Request, Scheme, SipMessage, StatusCode};
 
 pub fn generate_options_response(request: Request, config: &Config) -> SipMessage {
     let mut headers: rsip::Headers = Default::default();
@@ -28,7 +28,7 @@ pub fn generate_options_response(request: Request, config: &Config) -> SipMessag
     headers.push(request.call_id_header().unwrap().clone().into());
     headers.push(request.cseq_header().unwrap().clone().into());
 
-    headers.push(Allow::from(vec![Invite, Ack, Bye, Cancel]).into());
+    headers.push(get_allow_header().into());
     headers.push(Accept::from(vec![MediaType::Sdp(Default::default())]).into());
     headers.push(AcceptLanguage::from("en").into());
 

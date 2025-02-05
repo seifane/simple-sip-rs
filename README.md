@@ -28,8 +28,8 @@ use simple_sip_rs::manager::SipManager;
 
 async fn connect_and_call() {
     let config = Config {
-        server_addr: SocketAddr::from_str("192.168.1.100").unwrap(),
-        own_addr: SocketAddr::from_str("192.168.1.2").unwrap(),
+        server_addr: SocketAddr::from_str("192.168.1.100:5060").unwrap(), // IP of SIP server
+        own_addr: SocketAddr::from_str("192.168.1.2").unwrap(), // Your IP in relation to the SIP server
         username: "username".to_string(),
         password: "password".to_string(),
     };
@@ -42,11 +42,21 @@ async fn connect_and_call() {
 }
 ```
 
+## Examples
+
+You can run the simple CLI example by running
+
+```bash
+cargo run --package simple-sip-rs --example cli -- --server-address 192.168.1.2:5060 --own-address 192.168.1.10:5060 --username username --password password
+```
+
 ## Limitations and Future Plans
 
 - Limited functionality: simple-sip-rs currently supports only a subset of SIP features. More features might be implemented over time. (PRs welcome)
 - Experimental status: The API may change as the library evolves. Use with caution.
 - Encryption: Encryption may be added in the future, but it's not guaranteed. (PRs welcome)
+- Further testing: This was tested against a FreePBX server running in the same network as the client. There might be cases that are not
+handled properly when operating behind NATs.
 
 ## Contributing
 Contributions are welcome! Please feel free to open issues or submit pull requests.

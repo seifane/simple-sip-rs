@@ -1,5 +1,6 @@
 use anyhow::Result;
 use rsip::SipMessage;
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct CallConnection {
@@ -22,5 +23,19 @@ impl CallConnection {
 
     pub async fn recv(&mut self) -> Option<SipMessage> {
         self.receiver.recv().await
+    }
+
+    pub fn try_recv(&mut self) -> Result<Option<SipMessage>> {
+        match self.receiver.try_recv() {
+            Ok(message) => {
+                Ok(Some(message))
+            }
+            Err(err) => {
+                match err {
+                    TryRecvError::Empty => Ok(None),
+                    TryRecvError::Disconnected => Err(err.into()),
+                }
+            }
+        }
     }
 }
