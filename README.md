@@ -9,11 +9,12 @@ simple-sip-rs is currently in its early stages of development and is not suitabl
 ## Purpose
 simple-sip-rs aims to provide a basic framework for implementing SIP (Session Initiation Protocol) functionality in Rust projects. It's a work in progress and may have limitations or bugs.
 
-Note: simple-sip-rs is designed to be opinionated, making it easier for developers to get started with SIP in Rust. However, this also means that it may not be as flexible as other libraries.
+Note: simple-sip-rs is designed to be opinionated, making it easier for developers to get started with SIP in Rust.
+However, this also means that it may not be as flexible as other libraries, and some concept may be abstracted.
 
 ## Features
-- **Basic SIP message parsing and sending**: Can handle simple SIP messages like INVITE, ACK, and BYE.
-- **Support for PCMU and Opus codecs**: simple-sip-rs can handle both PCMU and opus codecs for audio communication.
+- **Basic SIP message parsing and sending**: Can handle basic SIP messages like INVITE, ACK, BYE and CANCEL.
+- **Support for PCMU, PCMA and Opus codecs**: simple-sip-rs can handle PCMU, PCMA and Opus codecs for audio communication. These can be enabled / disable through crate features.
 - **Support for Telephone events**: simple-sip-rs can receive telephone events aka DTMF button presses (not send them currently).
 
 ## Usage
@@ -41,6 +42,12 @@ async fn connect_and_call() {
     let outgoing_call = sip_manager.call("1000".to_string());
 }
 ```
+
+## Crate features
+
+- `opus`: Enables the Opus codec (default)
+- `pcmu`: Enables the PCMU codec (default)s
+- `pcma`: Enables the PCMA codec
 
 ## Examples
 

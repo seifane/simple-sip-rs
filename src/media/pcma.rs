@@ -12,53 +12,52 @@ use webrtc_sdp::media_type::{SdpMedia, SdpMediaValue};
 use webrtc_sdp::SdpSession;
 
 // Reference for encode / decode
-// https://github.com/kbalt/ezk-media/blob/main/crates/ezk-g711/src/mulaw.rs
+// https://github.com/kbalt/ezk-media/blob/main/crates/ezk-g711/src/alaw.rs
 
 fn encode(x: i16) -> u8 {
-    let mut absno = if x < 0 {
-        ((!x) >> 2) + 33
-    } else {
-        (x >> 2) + 33
-    };
+    let mut ix = if x < 0 { (!x) >> 4 } else { x >> 4 };
 
-    if absno > 0x1FFF {
-        absno = 0x1FFF;
+    if ix > 15 {
+        let mut iexp = 1;
+
+        while ix > 16 + 15 {
+            ix >>= 1;
+            iexp += 1;
+        }
+        ix -= 16;
+        ix += iexp << 4;
     }
-
-    let mut i = absno >> 6;
-    let mut segno = 1;
-    while i != 0 {
-        segno += 1;
-        i >>= 1;
-    }
-
-    let high_nibble = 0x8 - segno;
-    let low_nibble = (absno >> segno) & 0xF;
-    let low_nibble = 0xF - low_nibble;
-
-    let mut ret = (high_nibble << 4) | low_nibble;
 
     if x >= 0 {
-        ret |= 0x0080;
+        ix |= 0x0080;
     }
 
-    ret as u8
+    ((ix ^ 0x55) & 0xFF) as u8
 }
 
 fn decode(y: u8) -> i16 {
-    let y = y as i16;
-    let sign: i16 = if y < 0x0080 { -1 } else { 1 };
+    let mut ix = y ^ 0x55;
+    ix &= 0x7F;
 
-    let mantissa = !y;
-    let exponent = (mantissa >> 4) & 0x7;
-    let segment = exponent + 1;
-    let mantissa = mantissa & 0xF;
+    let iexp = ix >> 4;
+    let mut mant = (ix & 0xF) as i16;
+    if iexp > 0 {
+        mant += 16;
+    }
 
-    let step = 4 << segment;
+    mant = (mant << 4) + 0x8;
 
-    sign * ((0x0080 << exponent) + step * mantissa + step / 2 - 4 * 33)
+    if iexp > 1 {
+        mant <<= iexp - 1;
+    }
+
+    if y > 127 {
+        mant
+    } else {
+        -mant
+    }
 }
-pub struct PcmuCodec {
+pub struct PcmaCodec {
     ptime: u32,
     payload_type: u8,
     sample_rate: u32,
@@ -68,7 +67,7 @@ pub struct PcmuCodec {
     buffer_out: Vec<f32>,
 }
 
-impl PcmuCodec {
+impl PcmaCodec {
     pub fn try_from_sdp_session(sdp_session: &SdpSession) -> Result<Option<Self>> {
         for media in sdp_session.media.iter() {
             if media.get_type() != &SdpMediaValue::Audio {
@@ -84,8 +83,8 @@ impl PcmuCodec {
 
             for attr in media.get_attributes().iter() {
                 if let SdpAttribute::Rtpmap(a) = attr {
-                    if a.codec_name.to_lowercase().as_str() == "pcmu" {
-                        let instance = PcmuCodec {
+                    if a.codec_name.to_lowercase().as_str() == "pcma" {
+                        let instance = PcmaCodec {
                             ptime: ptime as u32,
                             payload_type: a.payload_type,
                             sample_rate: a.frequency,
@@ -110,14 +109,14 @@ impl PcmuCodec {
     }
 }
 
-impl RTPCodec for PcmuCodec {
+impl RTPCodec for PcmaCodec {
     fn populate_sdp_media(sdp_media: &mut SdpMedia) -> Result<()>
     where
         Self: Sized
     {
         sdp_media.add_codec(SdpAttributeRtpmap {
             payload_type: 0,
-            codec_name: "PCMU".to_string(),
+            codec_name: "PCMA".to_string(),
             frequency: 8000,
             channels: None,
         })?;

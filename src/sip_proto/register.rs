@@ -83,7 +83,6 @@ pub fn generate_register_request(config: &Config) -> SipMessage {
         },
         params: vec![
             rsip::Param::Branch(rsip::param::Branch::new(format!("z9hG4bK{}", Uuid::new_v4()))),
-            // rsip::Param::Branch(rsip::param::Branch::new(format!("z9hG4bKasdasdasdasdasdad"))),
             rsip::Param::Other(OtherParam::new("rport".to_string()), None),
         ],
     }.into());
@@ -106,7 +105,7 @@ pub fn generate_register_request(config: &Config) -> SipMessage {
         uri: remote_uri.clone(),
         params: vec![rsip::Param::Tag(rsip::param::Tag::new("a73kszlflasda"))],
     }.into());
-    headers.push(rsip::headers::CallId::from("fB51qweqqvxBQrvBY2t0_Q..").into()); // TODO: use generated callid
+    headers.push(rsip::headers::CallId::from(Uuid::new_v4().to_string()).into());
     headers.push(
         CSeq {
             seq: 1,

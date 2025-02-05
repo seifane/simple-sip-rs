@@ -9,6 +9,12 @@
 //! Only audio calls are supported with either Opus or PCMU codec without encryption.
 //!
 //! To get started look at the [manager](manager::SipManager) module or example.
+//!
+//! ## Features
+//!
+//! - `opus`: Enables the Opus codec (default)
+//! - `pcmu`: Enables the PCMU codec (default)
+//! - `pcma`: Enables the PCMA codec
 
 pub mod call;
 pub mod config;

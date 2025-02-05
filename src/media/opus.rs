@@ -5,8 +5,8 @@ use opus::{Application, Channels, Decoder, Encoder};
 use rtp::codecs::opus::OpusPayloader;
 use rtp::packet::Packet;
 use rtp::packetizer::{new_packetizer, Packetizer};
-use webrtc_sdp::attribute_type::SdpAttribute;
-use webrtc_sdp::media_type::SdpMediaValue;
+use webrtc_sdp::attribute_type::{SdpAttribute, SdpAttributeFmtp, SdpAttributeFmtpParameters, SdpAttributeRtpmap};
+use webrtc_sdp::media_type::{SdpMedia, SdpMediaValue};
 use webrtc_sdp::SdpSession;
 use crate::call::Media;
 
@@ -74,6 +74,51 @@ impl OpusCodec {
 }
 
 impl RTPCodec for OpusCodec {
+    fn populate_sdp_media(sdp_media: &mut SdpMedia) -> Result<()>
+    where
+        Self: Sized
+    {
+        sdp_media.add_codec(SdpAttributeRtpmap {
+            payload_type: 107,
+            codec_name: "opus".to_string(),
+            frequency: 48000,
+            channels: Some(2),
+        })?;
+
+        sdp_media.add_attribute(SdpAttribute::Fmtp(SdpAttributeFmtp {
+            payload_type: 107,
+            parameters: SdpAttributeFmtpParameters {
+                packetization_mode: 0,
+                level_asymmetry_allowed: false,
+                profile_level_id: 0,
+                max_fs: 0,
+                max_cpb: 0,
+                max_dpb: 0,
+                max_br: 0,
+                max_mbps: 0,
+                max_fr: 0,
+                profile: None,
+                level_idx: None,
+                tier: None,
+                maxplaybackrate: 48000,
+                maxaveragebitrate: 0,
+                usedtx: false,
+                stereo: false,
+                useinbandfec: true,
+                cbr: false,
+                ptime: 0,
+                minptime: 0,
+                maxptime: 0,
+                encodings: vec![],
+                dtmf_tones: "".to_string(),
+                rtx: None,
+                unknown_tokens: vec![],
+            },
+        }))?;
+
+        Ok(())
+    }
+
     fn get_payload_type(&self) -> u8 {
         self.payload_type
     }
