@@ -5,6 +5,7 @@ use rsip::{HostWithPort, Scheme, Uri, Version};
 use std::net::SocketAddr;
 use uuid::Uuid;
 
+
 #[derive(Clone)]
 pub struct Config {
     pub server_addr: SocketAddr,
@@ -12,6 +13,9 @@ pub struct Config {
 
     pub username: String,
     pub password: String,
+
+    pub rtp_port_start: u16,
+    pub rtp_port_end: u16,
 }
 
 impl Config {

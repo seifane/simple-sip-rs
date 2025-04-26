@@ -58,6 +58,8 @@ impl IncomingCallReceiver {
 ///         own_addr: SocketAddr::from_str("192.168.1.2").unwrap(),
 ///         username: "username".to_string(),
 ///         password: "password".to_string(),
+///         rtp_port_start: 20480,
+///         rtp_port_end: 20490,
 ///     };
 ///
 ///
@@ -81,7 +83,7 @@ impl SipManager {
     pub async fn from_config(config: Config) -> Result<Self> {
         let (sender, receiver) = tokio::sync::mpsc::channel(32);
         Ok(SipManager {
-            context: Arc::new(Mutex::new(SipContext::from_config(config.clone()))),
+            context: Arc::new(Mutex::new(SipContext::from_config(config.clone())?)),
 
             incoming_call_receiver: Some(receiver),
             incoming_call_sender: sender,

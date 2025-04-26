@@ -28,7 +28,6 @@ struct Args {
     pub server_address: String,
     #[clap(long)]
     pub own_address: String,
-
     #[clap(short, long)]
     pub username: String,
     #[clap(short, long)]
@@ -227,10 +226,11 @@ async fn main() {
         own_addr: SocketAddr::from_str(args.own_address.as_str()).unwrap(),
         username: args.username.clone(),
         password: args.password.clone(),
+        rtp_port_start: 20480,
+        rtp_port_end: 20490
     };
 
-    let mut sip_manager =
-        SipManager::from_config(config).await.unwrap();
+    let mut sip_manager = SipManager::from_config(config).await.unwrap();
     sip_manager.start().await.unwrap();
 
     let mut current_call: Option<Call> = None;
