@@ -8,13 +8,19 @@ use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Config {
+    /// SIP Server address with port
     pub server_addr: SocketAddr,
+    /// Address used to be reached for RTP session, usually the current IP
     pub own_addr: SocketAddr,
 
+    /// SIP Username
     pub username: String,
+    /// SIP Password
     pub password: String,
 
+    /// Start of the RTP port range
     pub rtp_port_start: u16,
+    /// End of the RTP port range, must be > to `rtp_port_start`
     pub rtp_port_end: u16,
 }
 

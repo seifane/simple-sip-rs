@@ -33,6 +33,8 @@ async fn connect_and_call() {
         own_addr: SocketAddr::from_str("192.168.1.2").unwrap(), // Your IP in relation to the SIP server
         username: "username".to_string(),
         password: "password".to_string(),
+        rtp_port_start: 20400,
+        rtp_port_end: 20500
     };
     
     

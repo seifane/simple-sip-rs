@@ -4,7 +4,7 @@ description = "A Tiny, Easy To Use, Experimental SIP Library for Rust"
 repository = "https://github.com/seifane/simple-sip-rs"
 license = "AGPL-3.0"
 authors = ["Seifane Idouchach"]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 [features]
